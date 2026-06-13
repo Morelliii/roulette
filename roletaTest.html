@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roleta de Acolhimento</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* =========================================
+           CONFIGURAÇÕES GERAIS DA PÁGINA
+           ========================================= */
+        body {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #121212; /* Fundo escuro */
+            font-family: 'Roboto', sans-serif;
+            color: #ffffff;
+            overflow: hidden; /* Trava a rolagem da tela */
+        }
+
+        /* =========================================
+           ESTILOS DA ROLETA (CANVAS) E CONTAINER
+           ========================================= */
+        .wheel-container {
+            position: relative;
+            width: 95vmin;  /* Ocupa 95% do menor lado da tela (vira um quadrado perfeito) */
+            height: 95vmin; 
+        }
+
+        /* Envolve o ponteiro para permitir que ele gire sem sair do centro */
+        .pointer-wrapper {
+            position: absolute;
+            top: -2vmin; /* Joga um pouco pra fora da roleta */
+            left: 50%;
+            transform: translateX(-50%); /* Centraliza exato no meio */
+            z-index: 10;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+        }
+
+        /* O triângulo vermelho que marca o resultado */
+        .pointer {
+            width: 0;
+            height: 0;
+            border-left: 2.5vmin solid transparent;
+            border-right: 2.5vmin solid transparent;
+            border-top: 5vmin solid #e53935; 
+            transform-origin: top center; /* Faz ele balançar a partir da base (topo), como um pêndulo */
+        }
+
+        /* Animações ativadas via JavaScript quando o pino bate no ponteiro */
+        @keyframes tickRight {
+            0% { transform: rotate(0deg); }
+            30% { transform: rotate(25deg); } /* Pula para a direita */
+            100% { transform: rotate(0deg); }
+        }
+        @keyframes tickLeft {
+            0% { transform: rotate(0deg); }
+            30% { transform: rotate(-25deg); } /* Pula para a esquerda */
+            100% { transform: rotate(0deg); }
+        }
+
+        /* A roleta desenhada em si */
+        canvas {
+            display: block; 
+            width: 100%;
+            height: 100%;
+            border-radius: 50%; /* Garante a sombra redonda no fundo */
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            cursor: grab; /* Cursor de "mãozinha aberta" */
+        }
+
+        canvas:active {
+            cursor: grabbing; /* Mãozinha fechada quando clica/arrasta */
+        }
+
+        /* =========================================
+           BOTÃO FLUTUANTE (GIRAR)
+           ========================================= */
+        .fab-button {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            width: 64px;
+            height: 64px;
+            background-color: #00897B;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            cursor: pointer;
+            border: none;
+            color: white;
+            transition: transform 0.2s, background-color 0.2s, box-shadow 0.2s;
+            z-index: 20;
+        }
+
+        /* Efeitos visuais do botão ao passar mouse ou clicar */
+        .fab-button:hover:not(:disabled) {
+            background-color: #00796B;
+            transform: scale(1.05);
+            box-shadow: 0 6px 14px rgba(0,0,0,0.5);
+        }
+        .fab-button:active:not(:disabled) {
+            transform: scale(0.95);
+        }
+        .fab-button:disabled {
+            background-color: #333333;
+            color: #757575;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* =========================================
+           MODAL (POP-UP) DE RESULTADO
+           ========================================= */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.85); /* Fundo preto transparente */
+            backdrop-filter: blur(8px); /* Deixa a roleta no fundo embaçada */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0; /* Escondido por padrão */
+            pointer-events: none; /* Não clica em nada enquanto invisível */
+            transition: opacity 0.3s ease;
+            z-index: 100;
+        }
+
+        /* Classe que o JS adiciona para mostrar o modal */
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* A caixa gigante do resultado */
+        .modal-content {
+            background-color: #1e1e1e;
+            border: 1px solid #333333;
+            border-radius: 24px; /* Bordas mais redondas */
+            padding: 60px 40px; /* Muito mais espaço interno */
+            text-align: center;
+            min-width: 50vw; /* Bem largo (Metade da tela no mínimo) */
+            max-width: 90vw;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            transform: scale(0.8); /* Inicia pequeno para o efeito de "pulo" */
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+        }
+
+        .modal-overlay.active .modal-content {
+            transform: scale(1); /* Pula pro tamanho normal */
+        }
+
+        /* O X de fechar no canto superior direito */
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            background: none;
+            border: none;
+            color: #aaaaaa;
+            font-size: 32px;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.2s;
+        }
+        .close-modal:hover { color: #ffffff; }
+
+        .modal-label {
+            font-size: 18px;
+            color: #aaaaaa;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        /* O texto do tópico - Gigante para destacar na TV */
+        .modal-topic {
+            font-size: 64px; 
+            font-weight: 700;
+            color: #80CBC4;
+            margin-bottom: 40px; /* Dá um espaço até o botão */
+            line-height: 1.1;
+        }
+
+        /* Botão pequeno e discreto para não roubar a atenção do tópico */
+        .remove-btn {
+            padding: 10px 20px;
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background-color: transparent;
+            color: #e53935; /* Vermelho Material */
+            border: 1px solid #e53935;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: inline-block;
+        }
+        .remove-btn:hover { background-color: rgba(229, 57, 53, 0.1); }
+
+        /* Adaptação para celulares (Deixa o botão flutuante menorzinho) */
+        @media (max-width: 800px) {
+            .fab-button {
+                bottom: 20px; right: 20px;
+                width: 56px; height: 56px;
+            }
+            .modal-topic { font-size: 40px; } /* Ajusta fonte no celular */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="wheel-container">
+        <div class="pointer-wrapper">
+            <div class="pointer" id="pointer"></div>
+        </div>
+        <canvas id="wheelCanvas" width="1200" height="1200"></canvas>
+    </div>
+    
+    <button id="spinBtn" class="fab-button" title="Girar Roleta">
+        <svg fill="currentColor" viewBox="0 0 24 24" width="32" height="32">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+    </button>
+
+    <div class="modal-overlay" id="resultModal">
+        <div class="modal-content">
+            <button class="close-modal" id="closeModalBtn">&times;</button>
+            <span class="modal-label">Tópico Sorteado</span>
+            <div class="modal-topic" id="modalTopicName">Mundo Interno</div>
+            <button class="remove-btn" id="modalRemoveBtn">Remover Tópico da Dinâmica</button>
+        </div>
+    </div>
+
+    <script>
+        // =========================================
+        // 1. VARIÁVEIS PRINCIPAIS E CONFIGURAÇÕES
+        // =========================================
+        const canvas = document.getElementById("wheelCanvas");
+        const ctx = canvas.getContext("2d");
+        const spinBtn = document.getElementById("spinBtn");
+        const pointer = document.getElementById("pointer");
+        
+        const modal = document.getElementById("resultModal");
+        const closeModalBtn = document.getElementById("closeModalBtn");
+        const modalTopicName = document.getElementById("modalTopicName");
+        const modalRemoveBtn = document.getElementById("modalRemoveBtn");
+
+        // Edite aqui os tópicos da sua dinâmica
+        let topics = [
+            "Corpo e Saúde",
+            "Respiro e Lazer",
+            "Rede de Apoio",
+            "Identidade",
+            "Mundo Interno",
+            "Futuro"
+        ];
+
+        // Paleta de cores. Se tiver mais tópicos que cores, elas se repetem em looping.
+        let colors = [
+            "#80CBC4", "#FFF59D", "#FFCC80", 
+            "#A5D6A7", "#CE93D8", "#90CAF9"
+        ];
+
+        let lastSelectedIndex = null; // Guarda quem ganhou para podermos excluir depois
+        let currentRotation = 0; // Guarda a rotação acumulada ao longo do tempo
+        const CANVAS_SIZE = 1200; // Tamanho base (HD) do desenho
+        const CENTER = CANVAS_SIZE / 2; // Ponto central X e Y (600)
+        const RADIUS = 600; // Raio máximo
+
+        // =========================================
+        // 2. FUNÇÃO QUE DESENHA A ROLETA E OS PINOS
+        // =========================================
+        function drawWheel() {
+            // Limpa a tela antes de desenhar
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            
+            // Se acabar os tópicos, desenha um círculo cinza apagado
+            if (topics.length === 0) {
+                ctx.beginPath();
+                ctx.arc(CENTER, CENTER, RADIUS, 0, 2 * Math.PI);
+                ctx.fillStyle = "#1e1e1e";
+                ctx.fill();
+                return;
+            }
+
+            // arc é o tamanho matemático em "radianos" de cada fatia de cor
+            const arc = 2 * Math.PI / topics.length;
+
+            // Loop 1: Desenha as fatias de pizza e o texto
+            for (let i = 0; i < topics.length; i++) {
+                const angle = i * arc; // Onde a fatia começa
+                
+                ctx.beginPath();
+                ctx.arc(CENTER, CENTER, RADIUS, angle, angle + arc, false);
+                ctx.lineTo(CENTER, CENTER);
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+                ctx.save();
+
+                // Desenha os textos
+                ctx.fillStyle = "#212121";
+                ctx.font = "bold 48px 'Roboto', sans-serif"; 
+                
+                // Mágica trigonométrica para achar o meio exato da fatia e virar o texto
+                ctx.translate(
+                    CENTER + Math.cos(angle + arc / 2) * 380, 
+                    CENTER + Math.sin(angle + arc / 2) * 380
+                );
+                ctx.rotate(angle + arc / 2);
+                ctx.textAlign = "center";
+                ctx.fillText(topics[i], 0, 0);
+                ctx.restore();
+            }
+
+            // Loop 2: Desenha os Pinos (pegs) brancos na borda
+            ctx.fillStyle = "#ffffff";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            for (let i = 0; i < topics.length; i++) {
+                const angle = i * arc; // Os pinos ficam exatamente na linha que divide as cores
+                ctx.beginPath();
+                // O valor 570 joga o pino quase na borda final (que é 600)
+                ctx.arc(
+                    CENTER + Math.cos(angle) * 570, 
+                    CENTER + Math.sin(angle) * 570, 
+                    12, // Tamanho da bolinha branca (Pino)
+                    0, 2 * Math.PI
+                );
+                ctx.fill();
+            }
+            ctx.shadowColor = "transparent"; // Desliga a sombra pra não afetar os próximos
+
+            // Passo 3: O círculo branco no miolo da roleta
+            ctx.beginPath();
+            ctx.arc(CENTER, CENTER, 90, 0, 2 * Math.PI, false);
+            ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = "#ffffff";
+            ctx.fill();
+            ctx.shadowColor = "transparent";
+        }
+
+        drawWheel(); // Aciona o desenho pela 1ª vez quando a página carrega
+
+        // =========================================
+        // 3. LÓGICA DO MODAL (EXIBIR / REMOVER)
+        // =========================================
+        function showModal(index) {
+            lastSelectedIndex = index;
+            modalTopicName.textContent = topics[index];
+            modal.classList.add("active"); // Mostra o modal gigante
+            spinBtn.disabled = false; // Libera o botão de girar novamente
+        }
+
+        function hideModal() {
+            modal.classList.remove("active");
+        }
+
+        // Se clicar no X, só fecha o modal
+        closeModalBtn.addEventListener("click", hideModal);
+
+        // Se clicar em Remover Tópico...
+        modalRemoveBtn.addEventListener("click", () => {
+            if (lastSelectedIndex !== null) {
+                topics.splice(lastSelectedIndex, 1); // Remove texto da lista
+                colors.splice(lastSelectedIndex, 1); // Remove cor da lista
+                lastSelectedIndex = null;
+                
+                hideModal();
+                drawWheel(); // Refaz a roleta instantaneamente com os itens q sobraram
+
+                if (topics.length === 0) {
+                    spinBtn.disabled = true;
+                    setTimeout(() => {
+                        alert("Todos os temas foram discutidos! A dinâmica acabou.");
+                    }, 500);
+                }
+            }
+        });
+
+        // Calcula quem foi sorteado baseado no grau exato onde a roleta parou
+        function determineWinner() {
+            let normalizedRotation = currentRotation % 360;
+            if (normalizedRotation < 0) normalizedRotation += 360;
+
+            const sliceAngle = 360 / topics.length;
+            const relativeTop = (270 - normalizedRotation + 360) % 360;
+            const selectedIndex = Math.floor(relativeTop / sliceAngle);
+
+            showModal(selectedIndex);
+        }
+
+        function lockControls() {
+            spinBtn.disabled = true; // Trava o botão p/ ninguém clicar enquanto gira
+        }
+
+        // =========================================
+        // 4. EFEITO DOS PINOS BATENDO NO PONTEIRO
+        // =========================================
+        let isSpinning = false; // Flag para saber se a roleta está em movimento
+        let lastPhase = null;
+
+        // Essa função roda 60 vezes por segundo enquanto a roleta gira (via requestAnimationFrame)
+        function checkPegCollision() {
+            if (!isSpinning || topics.length === 0) return;
+
+            // Pega do navegador qual é o grau exato da roleta em tempo real na tela
+            const style = window.getComputedStyle(canvas);
+            const matrix = new DOMMatrix(style.transform);
+            let angle = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI);
+            if (angle < 0) angle += 360; // Mantém entre 0 e 360
+
+            const sliceAngle = 360 / topics.length;
+            
+            // "Fase" é a distância em graus do topo da tela até o pino mais próximo
+            let phase = (angle - 270 + 360) % sliceAngle;
+            if (phase < 0) phase += sliceAngle;
+
+            if (lastPhase !== null) {
+                let delta = phase - lastPhase;
+                // Se o delta for muito grande (a fase pulou do nada), significa que o pino acabou de cruzar o ponteiro!
+                if (Math.abs(delta) > sliceAngle / 2) {
+                    // Decide pra qual lado o ponteiro vai tomar o tranco baseado na direção do giro
+                    let direction = delta > 0 ? "tickLeft" : "tickRight";
+                    triggerPointerTick(direction);
+                }
+            }
+
+            lastPhase = phase;
+            requestAnimationFrame(checkPegCollision); // Chama ela mesma para o próximo frame
+        }
+
+        function triggerPointerTick(animationName) {
+            pointer.style.animation = 'none'; // Remove animação antiga
+            pointer.offsetHeight; // Truque: Força o navegador a recalcular a tela na hora
+            pointer.style.animation = `${animationName} 0.15s ease-out`; // Dispara o tranco na direção certa
+        }
+
+        // =========================================
+        // 5. FÍSICA E ARRASTO DO MOUSE (TOUCH)
+        // =========================================
+        let isDragging = false;
+        let lastAngle = 0;
+        let velocity = 0;
+        let lastTime = 0;
+
+        // Pega o ângulo trigonométrico entre o centro da tela e o mouse
+        function getAngle(e) {
+            const rect = canvas.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
+        }
+
+        function startDrag(e) {
+            if (topics.length === 0 || spinBtn.disabled) return;
+            isDragging = true;
+            canvas.style.transition = 'none'; // Desliga a "suavidade" pro canvas grudar no mouse
+            lastAngle = getAngle(e);
+            lastTime = performance.now();
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            e.preventDefault(); 
+            
+            const currentMouseAngle = getAngle(e);
+            let delta = currentMouseAngle - lastAngle;
+            
+            if (delta > 180) delta -= 360;
+            if (delta < -180) delta += 360;
+
+            currentRotation += delta;
+            canvas.style.transform = `rotate(${currentRotation}deg)`; // Gira grudado no mouse
+            
+            // Calcula a velocidade do seu braço/mouse em tempo real
+            const now = performance.now();
+            const timeDelta = now - lastTime;
+            if (timeDelta > 0) {
+                velocity = delta / timeDelta;
+            }
+            
+            lastAngle = currentMouseAngle;
+            lastTime = now;
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            lockControls();
+
+            // MÁGICA: Multiplica a vel do mouse por 8000 para gerar o tranco/giro final
+            let momentum = velocity * 8000; 
+
+            // Se o puxão foi fraco demais, o sistema dá um leve empurrão pra roleta não ficar presa
+            if (Math.abs(momentum) < 1500) {
+                momentum = (momentum >= 0 ? 1 : -1) * (Math.floor(Math.random() * 1500) + 1500);
+            }
+
+            currentRotation += momentum; // Soma a inércia na rotação total
+            canvas.style.transition = 'transform 3s cubic-bezier(0.15, 0.85, 0.35, 1)'; // Religa a suavidade
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            // INICIA O MOTOR DOS PINOS BATENDO
+            isSpinning = true;
+            lastPhase = null;
+            requestAnimationFrame(checkPegCollision);
+
+            // Tempo igual ao tempo da animação (3s). Quando acaba, para de ler os pinos e acha o vencedor
+            setTimeout(() => {
+                isSpinning = false;
+                determineWinner();
+            }, 3000);
+        }
+
+        // Listeners p/ Notebook/Mouse
+        canvas.addEventListener('mousedown', startDrag);
+        window.addEventListener('mousemove', drag);
+        window.addEventListener('mouseup', endDrag);
+
+        // Listeners p/ Celular ou TV Touch
+        canvas.addEventListener('touchstart', startDrag, {passive: false});
+        window.addEventListener('touchmove', drag, {passive: false});
+        window.addEventListener('touchend', endDrag);
+
+        // =========================================
+        // 6. GIRO DO BOTÃO FÍSICO "GIRAR ROLETA"
+        // =========================================
+        spinBtn.addEventListener("click", () => {
+            if (topics.length === 0) return;
+            lockControls();
+
+            // Sorteia de 5 a 10 voltas pra frente (entre 1800 e 3600 graus)
+            const randomDegree = Math.floor(Math.random() * 3600) + 1800;
+            currentRotation += randomDegree;
+
+            canvas.style.transition = "transform 4s cubic-bezier(0.25, 0.1, 0.25, 1)";
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            // Ativa o som visual dos pinos!
+            isSpinning = true;
+            lastPhase = null;
+            requestAnimationFrame(checkPegCollision);
+
+            setTimeout(() => {
+                isSpinning = false;
+                determineWinner();
+            }, 4000); // 4000ms = 4s da animação do botão
+        });
+    </script>
+</body>
+</html>
