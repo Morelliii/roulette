@@ -10,19 +10,22 @@
            CONFIGURAÇÕES GERAIS E ROLETA
            ========================================= */
         body {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
+            /* Removido o display: flex para evitar o bug do redimensionamento */
             margin: 0;
             background-color: #121212; 
             font-family: 'Roboto', sans-serif;
             color: #ffffff;
             overflow: hidden; 
+            height: 100dvh; /* Medida dinâmica para celulares (ignora barra de endereço) */
+            position: relative; /* Base para o absolute da roleta */
         }
 
         .wheel-container {
-            position: relative;
+            /* Posicionamento absoluto garante que a rotação não quebre o layout */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             width: 95vmin;  
             height: 95vmin; 
         }
@@ -36,24 +39,779 @@
             left: 50%;
             transform: translateX(-50%);
             width: 6vmin; 
-            height: 48vmin; /* Desce do centro até o chão */
-            background: linear-gradient(to right, #0a0a0a, #333333, #0a0a0a); /* Efeito cilíndrico metálico */
-            z-index: -1; /* Fica atrás da roleta */
+            height: 48vmin; 
+            background: linear-gradient(to right, #0a0a0a, #333333, #0a0a0a); 
+            z-index: -1; 
             border-radius: 3vmin 3vmin 0 0;
             box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
         }
 
         .wheel-base {
             position: absolute;
-            bottom: -2.5vmin; /* Preenche a folga exata até o final da tela */
+            bottom: -3vmin; 
             left: 50%;
             transform: translateX(-50%);
-            width: 55vmin;
-            height: 8vmin;
+            width: 55vmin; /* Medida ajustada por você */
+            height: 8vmin;  /* Medida ajustada por você */
             background: linear-gradient(to bottom, #333333, #111111);
-            clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%); /* Formato de trapézio */
+            clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%); 
             z-index: -2;
-            border-top: 2px solid #555555; /* Brilho na quina */
+            border-top: 2px solid #555555; 
+        }
+
+        /* =========================================
+           PONTEIRO E ANIMAÇÕES
+           ========================================= */
+        .pointer-wrapper {
+            position: absolute;
+            top: -3vmin; 
+            left: 50%;
+            transform: translateX(-50%); 
+            z-index: 10;
+            filter: drop-shadow(0 4px 6px rgba(0,0,0,0.6));
+        }
+
+        .pointer {
+            width: 0;
+            height: 0;
+            border-left: 2.5vmin solid transparent;
+            border-right: 2.5vmin solid transparent;
+            border-top: 5vmin solid #e53935; 
+            transform-origin: top center; 
+        }
+
+        @keyframes tickRight {
+            0% { transform: rotate(0deg); }
+            30% { transform: rotate(25deg); } 
+            100% { transform: rotate(0deg); }
+        }
+        @keyframes tickLeft {
+            0% { transform: rotate(0deg); }
+            30% { transform: rotate(-25deg); } 
+            100% { transform: rotate(0deg); }
+        }
+
+        canvas {
+            display: block; 
+            width: 100%;
+            height: 100%;
+            border-radius: 50%; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+            cursor: grab; 
+        }
+
+        canvas:active { cursor: grabbing; }
+
+        /* =========================================
+           BOTÕES FLUTUANTES (GIRAR E ADMIN)
+           ========================================= */
+        .fab-button {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            width: 64px;
+            height: 64px;
+            background-color: #00897B;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+            cursor: pointer;
+            border: none;
+            color: white;
+            transition: transform 0.2s, background-color 0.2s;
+            z-index: 20;
+        }
+
+        .fab-button:hover:not(:disabled) {
+            background-color: #00796B;
+            transform: scale(1.05);
+        }
+        .fab-button:active:not(:disabled) { transform: scale(0.95); }
+        .fab-button:disabled { background-color: #333333; color: #757575; cursor: not-allowed; }
+
+        .admin-btn {
+            position: fixed;
+            bottom: 40px;
+            left: 40px;
+            width: 48px;
+            height: 48px;
+            background-color: transparent;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            color: #555555; 
+            transition: color 0.2s;
+            z-index: 20;
+        }
+        .admin-btn:hover { color: #aaaaaa; }
+
+        /* =========================================
+           MODAIS (RESULTADO, LOGIN E ADMIN)
+           ========================================= */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.85); 
+            backdrop-filter: blur(8px); 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0; 
+            pointer-events: none; 
+            transition: opacity 0.3s ease;
+            z-index: 100;
+        }
+
+        .modal-overlay.active { opacity: 1; pointer-events: auto; }
+
+        .modal-content {
+            background-color: #1e1e1e;
+            border: 1px solid #333333;
+            border-radius: 24px; 
+            padding: 40px; 
+            text-align: center;
+            min-width: 40vw; 
+            max-width: 90vw;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.8);
+            transform: scale(0.8); 
+            transition: transform 0.3s;
+            position: relative;
+        }
+
+        .modal-overlay.active .modal-content { transform: scale(1); }
+
+        .close-modal {
+            position: absolute;
+            top: 20px;
+            right: 25px;
+            background: none;
+            border: none;
+            color: #aaaaaa;
+            font-size: 32px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .close-modal:hover { color: #ffffff; }
+
+        .modal-label {
+            font-size: 18px;
+            color: #aaaaaa;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            margin-bottom: 20px;
+            display: block;
+        }
+
+        .modal-topic {
+            font-size: 64px; 
+            font-weight: 700;
+            color: #80CBC4;
+            margin-bottom: 40px; 
+            line-height: 1.1;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            border: none;
+        }
+        .btn-danger { background-color: transparent; color: #e53935; border: 1px solid #e53935; }
+        .btn-danger:hover { background-color: rgba(229, 57, 53, 0.1); }
+        .btn-primary { background-color: #00897B; color: white; width: 100%; margin-top: 20px; }
+        .btn-primary:hover { background-color: #00796B; }
+        
+        .form-group { text-align: left; margin-bottom: 20px; }
+        .form-group label { display: block; margin-bottom: 8px; color: #aaaaaa; font-size: 14px; }
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            background-color: #121212;
+            border: 1px solid #333333;
+            border-radius: 6px;
+            color: white;
+            font-family: 'Roboto', sans-serif;
+            box-sizing: border-box;
+        }
+        textarea.form-control { resize: vertical; min-height: 120px; }
+
+        @media (max-width: 800px) {
+            .fab-button { bottom: 20px; right: 20px; width: 56px; height: 56px; }
+            .admin-btn { bottom: 20px; left: 20px; }
+            .modal-topic { font-size: 40px; } 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="wheel-container">
+        <div class="wheel-stand"></div>
+        <div class="wheel-base"></div>
+        
+        <div class="pointer-wrapper"><div class="pointer" id="pointer"></div></div>
+        <canvas id="wheelCanvas" width="1200" height="1200"></canvas>
+    </div>
+    
+    <button id="spinBtn" class="fab-button" title="Girar Roleta">
+        <svg fill="currentColor" viewBox="0 0 24 24" width="32" height="32">
+            <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+        </svg>
+    </button>
+
+    <button id="openAuthBtn" class="admin-btn" title="Configurações">
+        <svg fill="currentColor" viewBox="0 0 24 24" width="28" height="28">
+            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+        </svg>
+    </button>
+
+    <div class="modal-overlay" id="resultModal">
+        <div class="modal-content">
+            <button class="close-modal" id="closeResultBtn">&times;</button>
+            <span class="modal-label">Tópico Sorteado</span>
+            <div class="modal-topic" id="modalTopicName">Carregando...</div>
+            <button class="btn btn-danger" id="modalRemoveBtn">Remover Tópico da Dinâmica</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="authModal">
+        <div class="modal-content" style="max-width: 400px; min-width: 300px;">
+            <button class="close-modal" id="closeAuthBtn">&times;</button>
+            <span class="modal-label" style="color: #00897B;">Acesso Restrito</span>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>E-mail</label>
+                    <input type="email" id="emailInput" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Senha</label>
+                    <input type="password" id="passwordInput" class="form-control" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Entrar no Sistema</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="adminModal">
+        <div class="modal-content" style="text-align: left; max-width: 600px;">
+            <button class="close-modal" id="closeAdminBtn">&times;</button>
+            <span class="modal-label" style="color: #00897B; text-align: center;">Painel de Controle</span>
+            <p style="color: #aaaaaa; font-size: 14px; text-align: center;">Adicione um item por linha.<br>Você pode digitar nomes de cores (Azul, Amarelo, Rosa, Verde Claro...) ou códigos HEX.</p>
+            
+            <div class="form-group">
+                <label>Tópicos da Dinâmica</label>
+                <textarea id="topicsInput" class="form-control"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Cores da Roleta</label>
+                <textarea id="colorsInput" class="form-control"></textarea>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button id="saveConfigBtn" class="btn btn-primary">Salvar no Servidor</button>
+                <button id="logoutBtn" class="btn btn-danger" style="margin-top: 20px;">Sair</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDu4-isXrUknQltBmQGswaqifh5z83Sntc",
+            authDomain: "roletausf.firebaseapp.com",
+            projectId: "roletausf",
+            storageBucket: "roletausf.firebasestorage.app",
+            messagingSenderId: "937121501531",
+            appId: "1:937121501531:web:b7180a71e57223b65b4a7e"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        const canvas = document.getElementById("wheelCanvas");
+        const ctx = canvas.getContext("2d");
+        const spinBtn = document.getElementById("spinBtn");
+        const pointer = document.getElementById("pointer");
+        
+        let topics = [];
+        let colors = []; 
+        let lastSelectedIndex = null; 
+        let currentRotation = 0; 
+        const CANVAS_SIZE = 1200; 
+        const CENTER = CANVAS_SIZE / 2; 
+        const RADIUS = 600; 
+
+        const colorDictionary = {
+            "azul": "#90CAF9",
+            "azul claro": "#B3E5FC",
+            "azul escuro": "#1976D2",
+            "verde": "#A5D6A7",
+            "verde claro": "#C8E6C9",
+            "verde agua": "#80CBC4",
+            "amarelo": "#FFF59D",
+            "laranja": "#FFCC80",
+            "rosa": "#F48FB1",
+            "roxo": "#CE93D8",
+            "lilas": "#E1BEE7",
+            "vermelho": "#EF9A9A",
+            "cinza": "#B0BEC5",
+            "marrom": "#BCAAA4"
+        };
+
+        const configDocRef = doc(db, "roleta", "config");
+
+        onSnapshot(configDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                topics = data.topics || [];
+                colors = data.colors || ["azul", "amarelo", "laranja", "verde", "roxo"];
+                drawWheel(); 
+            } else {
+                const defaultData = {
+                    topics: ["Corpo e Saúde", "Respiro e Lazer", "Rede de Apoio", "Identidade", "Mundo Interno", "Futuro"],
+                    colors: ["verde agua", "amarelo", "laranja", "verde", "roxo", "azul"]
+                };
+                topics = defaultData.topics;
+                colors = defaultData.colors;
+                drawWheel();
+            }
+        });
+
+        function drawWheel() {
+            ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            
+            if (topics.length === 0) {
+                ctx.beginPath();
+                ctx.arc(CENTER, CENTER, RADIUS, 0, 2 * Math.PI);
+                ctx.fillStyle = "#1e1e1e";
+                ctx.fill();
+                return;
+            }
+
+            let parsedColors = colors.map(c => {
+                let key = c.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+                return colorDictionary[key] || c; 
+            });
+            
+            if(parsedColors.length === 0) parsedColors = ["#80CBC4"]; 
+
+            let assignedColors = [];
+            for (let i = 0; i < topics.length; i++) {
+                let chosenColor = parsedColors[i % parsedColors.length];
+
+                if (i > 0 && chosenColor === assignedColors[i - 1]) {
+                    let safeColor = parsedColors.find(c => c !== assignedColors[i - 1]);
+                    if (safeColor) chosenColor = safeColor;
+                }
+                
+                if (i === topics.length - 1 && topics.length > 1) {
+                    if (chosenColor === assignedColors[0] || chosenColor === assignedColors[i - 1]) {
+                        let safeColor = parsedColors.find(c => c !== assignedColors[0] && c !== assignedColors[i - 1]);
+                        if (safeColor) {
+                            chosenColor = safeColor;
+                        } else {
+                            chosenColor = "#B0BEC5"; 
+                        }
+                    }
+                }
+                assignedColors.push(chosenColor);
+            }
+
+            const arc = 2 * Math.PI / topics.length;
+
+            for (let i = 0; i < topics.length; i++) {
+                const angle = i * arc; 
+                ctx.beginPath();
+                ctx.arc(CENTER, CENTER, RADIUS, angle, angle + arc, false);
+                ctx.lineTo(CENTER, CENTER);
+                ctx.fillStyle = assignedColors[i]; 
+                ctx.fill();
+                ctx.save();
+
+                ctx.fillStyle = "#212121";
+                ctx.font = "bold 38px 'Roboto', sans-serif"; 
+                ctx.textBaseline = "middle"; 
+                
+                ctx.translate(
+                    CENTER + Math.cos(angle + arc / 2) * 360, 
+                    CENTER + Math.sin(angle + arc / 2) * 360
+                );
+                ctx.rotate(angle + arc / 2);
+                ctx.textAlign = "center";
+                
+                const words = topics[i].split(' ');
+                let lines = [];
+                let currentLine = words[0] || "";
+
+                for (let w = 1; w < words.length; w++) {
+                    let word = words[w];
+                    let width = ctx.measureText(currentLine + " " + word).width;
+                    if (width < 320) {
+                        currentLine += " " + word;
+                    } else {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    }
+                }
+                if (currentLine) lines.push(currentLine);
+
+                let lineHeight = 46;
+                let startY = -(lines.length - 1) * lineHeight / 2;
+
+                for(let j=0; j<lines.length; j++) {
+                    ctx.fillText(lines[j], 0, startY + (j * lineHeight));
+                }
+                
+                ctx.restore();
+            }
+
+            ctx.fillStyle = "#ffffff";
+            ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+            ctx.shadowBlur = 6;
+            ctx.shadowOffsetX = 2;
+            ctx.shadowOffsetY = 2;
+            
+            for (let i = 0; i < topics.length; i++) {
+                const angle = i * arc; 
+                ctx.beginPath();
+                ctx.arc(
+                    CENTER + Math.cos(angle) * 570, 
+                    CENTER + Math.sin(angle) * 570, 
+                    12, 
+                    0, 2 * Math.PI
+                );
+                ctx.fill();
+            }
+            ctx.shadowColor = "transparent";
+
+            ctx.beginPath();
+            ctx.arc(CENTER, CENTER, 90, 0, 2 * Math.PI, false);
+            ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
+            ctx.shadowBlur = 15;
+            ctx.fillStyle = "#ffffff";
+            ctx.fill();
+            ctx.shadowColor = "transparent";
+        }
+
+        const resultModal = document.getElementById("resultModal");
+        const closeResultBtn = document.getElementById("closeResultBtn");
+        const modalTopicName = document.getElementById("modalTopicName");
+        const modalRemoveBtn = document.getElementById("modalRemoveBtn");
+
+        function showResultModal(index) {
+            lastSelectedIndex = index;
+            modalTopicName.textContent = topics[index];
+            resultModal.classList.add("active"); 
+            spinBtn.disabled = false; 
+        }
+
+        closeResultBtn.addEventListener("click", () => resultModal.classList.remove("active"));
+
+        modalRemoveBtn.addEventListener("click", async () => {
+            if (lastSelectedIndex !== null) {
+                const newTopics = [...topics];
+                newTopics.splice(lastSelectedIndex, 1);
+                
+                resultModal.classList.remove("active");
+                
+                try {
+                    await setDoc(configDocRef, { topics: newTopics, colors: colors });
+                    lastSelectedIndex = null;
+                } catch (error) {
+                    topics.splice(lastSelectedIndex, 1);
+                    lastSelectedIndex = null;
+                    drawWheel();
+                }
+
+                if (topics.length === 0) {
+                    spinBtn.disabled = true;
+                    setTimeout(() => alert("Todos os temas foram discutidos! A dinâmica acabou."), 500);
+                }
+            }
+        });
+
+        function determineWinner() {
+            let normalizedRotation = currentRotation % 360;
+            if (normalizedRotation < 0) normalizedRotation += 360;
+
+            const sliceAngle = 360 / topics.length;
+            const relativeTop = (270 - normalizedRotation + 360) % 360;
+            const selectedIndex = Math.floor(relativeTop / sliceAngle);
+
+            showResultModal(selectedIndex);
+        }
+
+        function lockControls() { spinBtn.disabled = true; }
+
+        let isSpinning = false; 
+        let lastPhase = null;
+
+        function checkPegCollision() {
+            if (!isSpinning || topics.length === 0) return;
+
+            const style = window.getComputedStyle(canvas);
+            const matrix = new DOMMatrix(style.transform);
+            let angle = Math.atan2(matrix.b, matrix.a) * (180 / Math.PI);
+            if (angle < 0) angle += 360; 
+
+            const sliceAngle = 360 / topics.length;
+            let phase = (angle - 270 + 360) % sliceAngle;
+            if (phase < 0) phase += sliceAngle;
+
+            if (lastPhase !== null) {
+                let delta = phase - lastPhase;
+                if (Math.abs(delta) > sliceAngle / 2) {
+                    let direction = delta > 0 ? "tickLeft" : "tickRight";
+                    triggerPointerTick(direction);
+                }
+            }
+            lastPhase = phase;
+            requestAnimationFrame(checkPegCollision); 
+        }
+
+        function triggerPointerTick(animationName) {
+            pointer.style.animation = 'none'; 
+            pointer.offsetHeight; 
+            pointer.style.animation = `${animationName} 0.15s ease-out`; 
+        }
+
+        let isDragging = false;
+        let lastAngle = 0;
+        let velocity = 0;
+        let lastTime = 0;
+
+        function getAngle(e) {
+            const rect = canvas.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
+        }
+
+        function startDrag(e) {
+            if (topics.length === 0 || spinBtn.disabled || e.target.closest('.modal-overlay')) return;
+            isDragging = true;
+            canvas.style.transition = 'none'; 
+            lastAngle = getAngle(e);
+            lastTime = performance.now();
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            e.preventDefault(); 
+            const currentMouseAngle = getAngle(e);
+            let delta = currentMouseAngle - lastAngle;
+            if (delta > 180) delta -= 360;
+            if (delta < -180) delta += 360;
+            currentRotation += delta;
+            canvas.style.transform = `rotate(${currentRotation}deg)`; 
+            
+            const now = performance.now();
+            const timeDelta = now - lastTime;
+            if (timeDelta > 0) velocity = delta / timeDelta;
+            
+            lastAngle = currentMouseAngle;
+            lastTime = now;
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            lockControls();
+
+            let momentum = velocity * 8000; 
+            if (Math.abs(momentum) < 1500) {
+                momentum = (momentum >= 0 ? 1 : -1) * (Math.floor(Math.random() * 1500) + 1500);
+            }
+
+            currentRotation += momentum; 
+            canvas.style.transition = 'transform 3s cubic-bezier(0.15, 0.85, 0.35, 1)'; 
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            isSpinning = true;
+            lastPhase = null;
+            requestAnimationFrame(checkPegCollision);
+
+            setTimeout(() => {
+                isSpinning = false;
+                determineWinner();
+            }, 3000);
+        }
+
+        canvas.addEventListener('mousedown', startDrag);
+        window.addEventListener('mousemove', drag);
+        window.addEventListener('mouseup', endDrag);
+
+        canvas.addEventListener('touchstart', startDrag, {passive: false});
+        window.addEventListener('touchmove', drag, {passive: false});
+        window.addEventListener('touchend', endDrag);
+
+        spinBtn.addEventListener("click", () => {
+            if (topics.length === 0) return;
+            lockControls();
+            const randomDegree = Math.floor(Math.random() * 3600) + 1800;
+            currentRotation += randomDegree;
+            canvas.style.transition = "transform 4s cubic-bezier(0.25, 0.1, 0.25, 1)";
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+            isSpinning = true;
+            lastPhase = null;
+            requestAnimationFrame(checkPegCollision);
+            setTimeout(() => {
+                isSpinning = false;
+                determineWinner();
+            }, 4000); 
+        });
+
+        const authModal = document.getElementById("authModal");
+        const adminModal = document.getElementById("adminModal");
+        const openAuthBtn = document.getElementById("openAuthBtn");
+        const closeAuthBtn = document.getElementById("closeAuthBtn");
+        const closeAdminBtn = document.getElementById("closeAdminBtn");
+        
+        const loginForm = document.getElementById("loginForm");
+        const emailInput = document.getElementById("emailInput");
+        const passwordInput = document.getElementById("passwordInput");
+        
+        const topicsInput = document.getElementById("topicsInput");
+        const colorsInput = document.getElementById("colorsInput");
+        const saveConfigBtn = document.getElementById("saveConfigBtn");
+        const logoutBtn = document.getElementById("logoutBtn");
+
+        openAuthBtn.addEventListener("click", () => {
+            if (auth.currentUser) {
+                topicsInput.value = topics.join("\n");
+                colorsInput.value = colors.join("\n");
+                adminModal.classList.add("active");
+            } else {
+                authModal.classList.add("active");
+            }
+        });
+
+        closeAuthBtn.addEventListener("click", () => authModal.classList.remove("active"));
+        closeAdminBtn.addEventListener("click", () => adminModal.classList.remove("active"));
+
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            try {
+                await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+                authModal.classList.remove("active");
+                loginForm.reset();
+                topicsInput.value = topics.join("\n");
+                colorsInput.value = colors.join("\n");
+                adminModal.classList.add("active");
+            } catch (error) {
+                alert("Erro no login. Verifique o e-mail e a senha.");
+            }
+        });
+
+        saveConfigBtn.addEventListener("click", async () => {
+            const newTopics = topicsInput.value.split("\n").filter(t => t.trim() !== "");
+            const newColors = colorsInput.value.split("\n").filter(c => c.trim() !== "");
+            
+            if(newTopics.length === 0 || newColors.length === 0) {
+                alert("Você precisa inserir ao menos um tópico e uma cor.");
+                return;
+            }
+
+            saveConfigBtn.textContent = "Salvando...";
+            saveConfigBtn.disabled = true;
+
+            try {
+                await setDoc(configDocRef, {
+                    topics: newTopics,
+                    colors: newColors
+                });
+                adminModal.classList.remove("active");
+            } catch (error) {
+                alert("Erro ao salvar no servidor. Verifique sua conexão e permissões.");
+            } finally {
+                saveConfigBtn.textContent = "Salvar no Servidor";
+                saveConfigBtn.disabled = false;
+            }
+        });
+
+        logoutBtn.addEventListener("click", async () => {
+            await signOut(auth);
+            adminModal.classList.remove("active");
+            alert("Você saiu do painel de controle.");
+        });
+
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roleta de Acolhimento</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* =========================================
+           CONFIGURAÇÕES GERAIS E ROLETA
+           ========================================= */
+        body {
+            /* Removido o display: flex para evitar o bug do redimensionamento */
+            margin: 0;
+            background-color: #121212; 
+            font-family: 'Roboto', sans-serif;
+            color: #ffffff;
+            overflow: hidden; 
+            height: 100dvh; /* Medida dinâmica para celulares (ignora barra de endereço) */
+            position: relative; /* Base para o absolute da roleta */
+        }
+
+        .wheel-container {
+            /* Posicionamento absoluto garante que a rotação não quebre o layout */
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 95vmin;  
+            height: 95vmin; 
+        }
+
+        /* =========================================
+           BASE / PEDESTAL DA ROLETA
+           ========================================= */
+        .wheel-stand {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6vmin; 
+            height: 48vmin; 
+            background: linear-gradient(to right, #0a0a0a, #333333, #0a0a0a); 
+            z-index: -1; 
+            border-radius: 3vmin 3vmin 0 0;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .wheel-base {
+            position: absolute;
+            bottom: -3vmin; 
+            left: 50%;
+            transform: translateX(-50%);
+            width: 55vmin; /* Medida ajustada por você */
+            height: 8vmin;  /* Medida ajustada por você */
+            background: linear-gradient(to bottom, #333333, #111111);
+            clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%); 
+            z-index: -2;
+            border-top: 2px solid #555555; 
         }
 
         /* =========================================
