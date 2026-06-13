@@ -640,9 +640,9 @@
             lockControls();
 
             let momentum = velocity * 8000; 
-            if (Math.abs(momentum) < 1500) {
-                momentum = (momentum >= 0 ? 1 : -1) * (Math.floor(Math.random() * 1500) + 1500);
-            }
+            //if (Math.abs(momentum) < 1500) {
+            //    momentum = (momentum >= 0 ? 1 : -1) * (Math.floor(Math.random() * 1500) + 1500);
+            //}
 
             currentRotation += momentum; 
             canvas.style.transition = 'transform 3s cubic-bezier(0.15, 0.85, 0.35, 1)'; 
