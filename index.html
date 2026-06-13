@@ -27,6 +27,38 @@
             height: 95vmin; 
         }
 
+        /* =========================================
+           BASE / PEDESTAL DA ROLETA
+           ========================================= */
+        .wheel-stand {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 6vmin; 
+            height: 48vmin; /* Desce do centro até o chão */
+            background: linear-gradient(to right, #0a0a0a, #333333, #0a0a0a); /* Efeito cilíndrico metálico */
+            z-index: -1; /* Fica atrás da roleta */
+            border-radius: 3vmin 3vmin 0 0;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+        }
+
+        .wheel-base {
+            position: absolute;
+            bottom: -2.5vmin; /* Preenche a folga exata até o final da tela */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 35vmin;
+            height: 6vmin;
+            background: linear-gradient(to bottom, #333333, #111111);
+            clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%); /* Formato de trapézio */
+            z-index: -2;
+            border-top: 2px solid #555555; /* Brilho na quina */
+        }
+
+        /* =========================================
+           PONTEIRO E ANIMAÇÕES
+           ========================================= */
         .pointer-wrapper {
             position: absolute;
             top: -3vmin; 
@@ -220,6 +252,9 @@
 <body>
 
     <div class="wheel-container">
+        <div class="wheel-stand"></div>
+        <div class="wheel-base"></div>
+        
         <div class="pointer-wrapper"><div class="pointer" id="pointer"></div></div>
         <canvas id="wheelCanvas" width="1200" height="1200"></canvas>
     </div>
@@ -230,9 +265,9 @@
         </svg>
     </button>
 
-    <button id="openAuthBtn" class="admin-btn" title="Área Restrita">
-        <svg fill="currentColor" viewBox="0 0 24 24" width="24" height="24">
-            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6zm9 14H6V10h12v10zm-6-3c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2z"/>
+    <button id="openAuthBtn" class="admin-btn" title="Configurações">
+        <svg fill="currentColor" viewBox="0 0 24 24" width="28" height="28">
+            <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.43-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
         </svg>
     </button>
 
@@ -317,7 +352,6 @@
         const CENTER = CANVAS_SIZE / 2; 
         const RADIUS = 600; 
 
-        // Dicionário para mapear nomes reais em português para os códigos hexadecimais corretos e bonitos
         const colorDictionary = {
             "azul": "#90CAF9",
             "azul claro": "#B3E5FC",
@@ -365,34 +399,29 @@
                 return;
             }
 
-            // Traduz a lista de cores do painel (nomes) para Códigos Hexadecimais
             let parsedColors = colors.map(c => {
-                // Remove acentos e joga pra minúscula para reconhecer "Verde Água" como "verde agua"
                 let key = c.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
-                return colorDictionary[key] || c; // Se não achar o nome, usa como HEX ou CSS padrão
+                return colorDictionary[key] || c; 
             });
             
-            if(parsedColors.length === 0) parsedColors = ["#80CBC4"]; // Fallback de emergência
+            if(parsedColors.length === 0) parsedColors = ["#80CBC4"]; 
 
-            // LÓGICA ANTI-REPETIÇÃO: Escolhe a cor garantindo que não seja igual a anterior
             let assignedColors = [];
             for (let i = 0; i < topics.length; i++) {
                 let chosenColor = parsedColors[i % parsedColors.length];
 
-                // Checa colisão com a fatia anterior
                 if (i > 0 && chosenColor === assignedColors[i - 1]) {
                     let safeColor = parsedColors.find(c => c !== assignedColors[i - 1]);
                     if (safeColor) chosenColor = safeColor;
                 }
                 
-                // Checa colisão da ÚLTIMA fatia com a PRIMEIRA (para fechar o círculo perfeitamente)
                 if (i === topics.length - 1 && topics.length > 1) {
                     if (chosenColor === assignedColors[0] || chosenColor === assignedColors[i - 1]) {
                         let safeColor = parsedColors.find(c => c !== assignedColors[0] && c !== assignedColors[i - 1]);
                         if (safeColor) {
                             chosenColor = safeColor;
                         } else {
-                            chosenColor = "#B0BEC5"; // Coringa cinza caso as cores do painel esgotem as combinações
+                            chosenColor = "#B0BEC5"; 
                         }
                     }
                 }
@@ -406,13 +435,13 @@
                 ctx.beginPath();
                 ctx.arc(CENTER, CENTER, RADIUS, angle, angle + arc, false);
                 ctx.lineTo(CENTER, CENTER);
-                ctx.fillStyle = assignedColors[i]; // Usa a cor segura calculada acima
+                ctx.fillStyle = assignedColors[i]; 
                 ctx.fill();
                 ctx.save();
 
                 ctx.fillStyle = "#212121";
-                ctx.font = "bold 38px 'Roboto', sans-serif"; // Fonte ligeiramente menor para caber textos médios
-                ctx.textBaseline = "middle"; // Ajuda a centralizar o bloco de texto
+                ctx.font = "bold 38px 'Roboto', sans-serif"; 
+                ctx.textBaseline = "middle"; 
                 
                 ctx.translate(
                     CENTER + Math.cos(angle + arc / 2) * 360, 
@@ -421,14 +450,12 @@
                 ctx.rotate(angle + arc / 2);
                 ctx.textAlign = "center";
                 
-                // LÓGICA DE QUEBRA DE LINHA AUTOMÁTICA
                 const words = topics[i].split(' ');
                 let lines = [];
                 let currentLine = words[0] || "";
 
                 for (let w = 1; w < words.length; w++) {
                     let word = words[w];
-                    // Mede se a linha atual + a próxima palavra cabem no espaço de 320px da fatia
                     let width = ctx.measureText(currentLine + " " + word).width;
                     if (width < 320) {
                         currentLine += " " + word;
@@ -439,7 +466,6 @@
                 }
                 if (currentLine) lines.push(currentLine);
 
-                // Desenha as linhas perfeitamente centralizadas e espaçadas
                 let lineHeight = 46;
                 let startY = -(lines.length - 1) * lineHeight / 2;
 
@@ -450,7 +476,6 @@
                 ctx.restore();
             }
 
-            // Pinos na borda
             ctx.fillStyle = "#ffffff";
             ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
             ctx.shadowBlur = 6;
@@ -470,7 +495,6 @@
             }
             ctx.shadowColor = "transparent";
 
-            // Circulo central
             ctx.beginPath();
             ctx.arc(CENTER, CENTER, 90, 0, 2 * Math.PI, false);
             ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
@@ -497,7 +521,6 @@
         modalRemoveBtn.addEventListener("click", async () => {
             if (lastSelectedIndex !== null) {
                 const newTopics = [...topics];
-                // Perceba que não removemos a cor aqui. O sistema apenas redesenha e re-escolhe as cores baseado no que sobrou, evitando que a paleta do usuário encurte ou quebre o layout
                 newTopics.splice(lastSelectedIndex, 1);
                 
                 resultModal.classList.remove("active");
