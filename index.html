@@ -96,7 +96,6 @@
         .fab-button:active:not(:disabled) { transform: scale(0.95); }
         .fab-button:disabled { background-color: #333333; color: #757575; cursor: not-allowed; }
 
-        /* Botão discreto do Admin no canto esquerdo */
         .admin-btn {
             position: fixed;
             bottom: 40px;
@@ -110,7 +109,7 @@
             justify-content: center;
             cursor: pointer;
             border: none;
-            color: #555555; /* Bem escuro para não chamar atenção */
+            color: #555555; 
             transition: color 0.2s;
             z-index: 20;
         }
@@ -181,7 +180,6 @@
             line-height: 1.1;
         }
 
-        /* Botões padrão do sistema */
         .btn {
             padding: 12px 24px;
             font-size: 14px;
@@ -198,7 +196,6 @@
         .btn-primary { background-color: #00897B; color: white; width: 100%; margin-top: 20px; }
         .btn-primary:hover { background-color: #00796B; }
         
-        /* Formulários (Login e Admin) */
         .form-group { text-align: left; margin-bottom: 20px; }
         .form-group label { display: block; margin-bottom: 8px; color: #aaaaaa; font-size: 14px; }
         .form-control {
@@ -212,8 +209,6 @@
             box-sizing: border-box;
         }
         textarea.form-control { resize: vertical; min-height: 120px; }
-        
-        .loading-text { font-size: 24px; color: #80CBC4; }
 
         @media (max-width: 800px) {
             .fab-button { bottom: 20px; right: 20px; width: 56px; height: 56px; }
@@ -272,7 +267,7 @@
         <div class="modal-content" style="text-align: left; max-width: 600px;">
             <button class="close-modal" id="closeAdminBtn">&times;</button>
             <span class="modal-label" style="color: #00897B; text-align: center;">Painel de Controle</span>
-            <p style="color: #aaaaaa; font-size: 14px; text-align: center;">Adicione um item por linha. As alterações aparecem em tempo real na roleta.</p>
+            <p style="color: #aaaaaa; font-size: 14px; text-align: center;">Adicione um item por linha.<br>Você pode digitar nomes de cores (Azul, Amarelo, Rosa, Verde Claro...) ou códigos HEX.</p>
             
             <div class="form-group">
                 <label>Tópicos da Dinâmica</label>
@@ -280,7 +275,7 @@
             </div>
             
             <div class="form-group">
-                <label>Cores (Códigos HEX)</label>
+                <label>Cores da Roleta</label>
                 <textarea id="colorsInput" class="form-control"></textarea>
             </div>
             
@@ -292,14 +287,10 @@
     </div>
 
     <script type="module">
-        // Importando as bibliotecas modulares do Firebase V10
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-        // =========================================
-        // COLE SUAS CHAVES DO FIREBASE AQUI
-        // =========================================
         const firebaseConfig = {
             apiKey: "AIzaSyDu4-isXrUknQltBmQGswaqifh5z83Sntc",
             authDomain: "roletausf.firebaseapp.com",
@@ -309,53 +300,60 @@
             appId: "1:937121501531:web:b7180a71e57223b65b4a7e"
         };
 
-        // Inicializa o Firebase
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        // =========================================
-        // ESTADO GLOBAL DA ROLETA
-        // =========================================
         const canvas = document.getElementById("wheelCanvas");
         const ctx = canvas.getContext("2d");
         const spinBtn = document.getElementById("spinBtn");
         const pointer = document.getElementById("pointer");
         
         let topics = [];
-        let colors = ["#80CBC4"]; // Cor padrão de segurança
+        let colors = []; 
         let lastSelectedIndex = null; 
         let currentRotation = 0; 
         const CANVAS_SIZE = 1200; 
         const CENTER = CANVAS_SIZE / 2; 
         const RADIUS = 600; 
 
-        // Referência para o documento único de configuração no banco
+        // Dicionário para mapear nomes reais em português para os códigos hexadecimais corretos e bonitos
+        const colorDictionary = {
+            "azul": "#90CAF9",
+            "azul claro": "#B3E5FC",
+            "azul escuro": "#1976D2",
+            "verde": "#A5D6A7",
+            "verde claro": "#C8E6C9",
+            "verde agua": "#80CBC4",
+            "amarelo": "#FFF59D",
+            "laranja": "#FFCC80",
+            "rosa": "#F48FB1",
+            "roxo": "#CE93D8",
+            "lilas": "#E1BEE7",
+            "vermelho": "#EF9A9A",
+            "cinza": "#B0BEC5",
+            "marrom": "#BCAAA4"
+        };
+
         const configDocRef = doc(db, "roleta", "config");
 
-        // ESCUTANDO O BANCO DE DADOS EM TEMPO REAL
         onSnapshot(configDocRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 topics = data.topics || [];
-                colors = data.colors || ["#80CBC4"];
-                drawWheel(); // Redesenha a roleta automaticamente
+                colors = data.colors || ["azul", "amarelo", "laranja", "verde", "roxo"];
+                drawWheel(); 
             } else {
-                // Se o documento não existir na primeira vez, cria valores padrão
                 const defaultData = {
                     topics: ["Corpo e Saúde", "Respiro e Lazer", "Rede de Apoio", "Identidade", "Mundo Interno", "Futuro"],
-                    colors: ["#80CBC4", "#FFF59D", "#FFCC80", "#A5D6A7", "#CE93D8", "#90CAF9"]
+                    colors: ["verde agua", "amarelo", "laranja", "verde", "roxo", "azul"]
                 };
-                // Tenta salvar os padrões (só vai funcionar se estiver logado, mas não tem problema, fica na memória local)
                 topics = defaultData.topics;
                 colors = defaultData.colors;
                 drawWheel();
             }
         });
 
-        // =========================================
-        // LÓGICA DE DESENHO (MANTIDA IGUAL)
-        // =========================================
         function drawWheel() {
             ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
             
@@ -367,6 +365,40 @@
                 return;
             }
 
+            // Traduz a lista de cores do painel (nomes) para Códigos Hexadecimais
+            let parsedColors = colors.map(c => {
+                // Remove acentos e joga pra minúscula para reconhecer "Verde Água" como "verde agua"
+                let key = c.toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, "");
+                return colorDictionary[key] || c; // Se não achar o nome, usa como HEX ou CSS padrão
+            });
+            
+            if(parsedColors.length === 0) parsedColors = ["#80CBC4"]; // Fallback de emergência
+
+            // LÓGICA ANTI-REPETIÇÃO: Escolhe a cor garantindo que não seja igual a anterior
+            let assignedColors = [];
+            for (let i = 0; i < topics.length; i++) {
+                let chosenColor = parsedColors[i % parsedColors.length];
+
+                // Checa colisão com a fatia anterior
+                if (i > 0 && chosenColor === assignedColors[i - 1]) {
+                    let safeColor = parsedColors.find(c => c !== assignedColors[i - 1]);
+                    if (safeColor) chosenColor = safeColor;
+                }
+                
+                // Checa colisão da ÚLTIMA fatia com a PRIMEIRA (para fechar o círculo perfeitamente)
+                if (i === topics.length - 1 && topics.length > 1) {
+                    if (chosenColor === assignedColors[0] || chosenColor === assignedColors[i - 1]) {
+                        let safeColor = parsedColors.find(c => c !== assignedColors[0] && c !== assignedColors[i - 1]);
+                        if (safeColor) {
+                            chosenColor = safeColor;
+                        } else {
+                            chosenColor = "#B0BEC5"; // Coringa cinza caso as cores do painel esgotem as combinações
+                        }
+                    }
+                }
+                assignedColors.push(chosenColor);
+            }
+
             const arc = 2 * Math.PI / topics.length;
 
             for (let i = 0; i < topics.length; i++) {
@@ -374,23 +406,51 @@
                 ctx.beginPath();
                 ctx.arc(CENTER, CENTER, RADIUS, angle, angle + arc, false);
                 ctx.lineTo(CENTER, CENTER);
-                ctx.fillStyle = colors[i % colors.length];
+                ctx.fillStyle = assignedColors[i]; // Usa a cor segura calculada acima
                 ctx.fill();
                 ctx.save();
 
                 ctx.fillStyle = "#212121";
-                ctx.font = "bold 48px 'Roboto', sans-serif"; 
+                ctx.font = "bold 38px 'Roboto', sans-serif"; // Fonte ligeiramente menor para caber textos médios
+                ctx.textBaseline = "middle"; // Ajuda a centralizar o bloco de texto
                 
                 ctx.translate(
-                    CENTER + Math.cos(angle + arc / 2) * 380, 
-                    CENTER + Math.sin(angle + arc / 2) * 380
+                    CENTER + Math.cos(angle + arc / 2) * 360, 
+                    CENTER + Math.sin(angle + arc / 2) * 360
                 );
                 ctx.rotate(angle + arc / 2);
                 ctx.textAlign = "center";
-                ctx.fillText(topics[i], 0, 0);
+                
+                // LÓGICA DE QUEBRA DE LINHA AUTOMÁTICA
+                const words = topics[i].split(' ');
+                let lines = [];
+                let currentLine = words[0] || "";
+
+                for (let w = 1; w < words.length; w++) {
+                    let word = words[w];
+                    // Mede se a linha atual + a próxima palavra cabem no espaço de 320px da fatia
+                    let width = ctx.measureText(currentLine + " " + word).width;
+                    if (width < 320) {
+                        currentLine += " " + word;
+                    } else {
+                        lines.push(currentLine);
+                        currentLine = word;
+                    }
+                }
+                if (currentLine) lines.push(currentLine);
+
+                // Desenha as linhas perfeitamente centralizadas e espaçadas
+                let lineHeight = 46;
+                let startY = -(lines.length - 1) * lineHeight / 2;
+
+                for(let j=0; j<lines.length; j++) {
+                    ctx.fillText(lines[j], 0, startY + (j * lineHeight));
+                }
+                
                 ctx.restore();
             }
 
+            // Pinos na borda
             ctx.fillStyle = "#ffffff";
             ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
             ctx.shadowBlur = 6;
@@ -410,6 +470,7 @@
             }
             ctx.shadowColor = "transparent";
 
+            // Circulo central
             ctx.beginPath();
             ctx.arc(CENTER, CENTER, 90, 0, 2 * Math.PI, false);
             ctx.shadowColor = "rgba(0, 0, 0, 0.4)";
@@ -419,9 +480,6 @@
             ctx.shadowColor = "transparent";
         }
 
-        // =========================================
-        // LÓGICA DO MODAL DE RESULTADO
-        // =========================================
         const resultModal = document.getElementById("resultModal");
         const closeResultBtn = document.getElementById("closeResultBtn");
         const modalTopicName = document.getElementById("modalTopicName");
@@ -438,23 +496,17 @@
 
         modalRemoveBtn.addEventListener("click", async () => {
             if (lastSelectedIndex !== null) {
-                // Ao invés de deletar só do local, enviamos o array novo pro Firebase
                 const newTopics = [...topics];
-                const newColors = [...colors];
+                // Perceba que não removemos a cor aqui. O sistema apenas redesenha e re-escolhe as cores baseado no que sobrou, evitando que a paleta do usuário encurte ou quebre o layout
                 newTopics.splice(lastSelectedIndex, 1);
-                newColors.splice(lastSelectedIndex, 1);
                 
                 resultModal.classList.remove("active");
                 
                 try {
-                    // Atualiza o banco (quem estiver logado consegue fazer isso)
-                    await setDoc(configDocRef, { topics: newTopics, colors: newColors });
+                    await setDoc(configDocRef, { topics: newTopics, colors: colors });
                     lastSelectedIndex = null;
                 } catch (error) {
-                    alert("Aviso: A exclusão foi feita apenas na tela atual. Você precisa estar logado como Admin para excluir definitivamente do sistema.");
-                    // Deleta localmente caso não tenha permissão de gravar no banco
                     topics.splice(lastSelectedIndex, 1);
-                    colors.splice(lastSelectedIndex, 1);
                     lastSelectedIndex = null;
                     drawWheel();
                 }
@@ -479,9 +531,6 @@
 
         function lockControls() { spinBtn.disabled = true; }
 
-        // =========================================
-        // EFEITOS E FÍSICA (MANTIDOS IGUAIS)
-        // =========================================
         let isSpinning = false; 
         let lastPhase = null;
 
@@ -602,9 +651,6 @@
             }, 4000); 
         });
 
-        // =========================================
-        // SISTEMA DE AUTENTICAÇÃO E ADMINISTRAÇÃO
-        // =========================================
         const authModal = document.getElementById("authModal");
         const adminModal = document.getElementById("adminModal");
         const openAuthBtn = document.getElementById("openAuthBtn");
@@ -620,10 +666,8 @@
         const saveConfigBtn = document.getElementById("saveConfigBtn");
         const logoutBtn = document.getElementById("logoutBtn");
 
-        // Abre o modal correto baseado se está logado ou não
         openAuthBtn.addEventListener("click", () => {
             if (auth.currentUser) {
-                // Já está logado, preenche os textareas com os dados atuais e abre o admin
                 topicsInput.value = topics.join("\n");
                 colorsInput.value = colors.join("\n");
                 adminModal.classList.add("active");
@@ -635,14 +679,12 @@
         closeAuthBtn.addEventListener("click", () => authModal.classList.remove("active"));
         closeAdminBtn.addEventListener("click", () => adminModal.classList.remove("active"));
 
-        // Lógica de Login
         loginForm.addEventListener("submit", async (e) => {
             e.preventDefault();
             try {
                 await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
                 authModal.classList.remove("active");
                 loginForm.reset();
-                // Prepara e abre o painel admin
                 topicsInput.value = topics.join("\n");
                 colorsInput.value = colors.join("\n");
                 adminModal.classList.add("active");
@@ -651,7 +693,6 @@
             }
         });
 
-        // Lógica de Salvar no Servidor
         saveConfigBtn.addEventListener("click", async () => {
             const newTopics = topicsInput.value.split("\n").filter(t => t.trim() !== "");
             const newColors = colorsInput.value.split("\n").filter(c => c.trim() !== "");
@@ -678,7 +719,6 @@
             }
         });
 
-        // Lógica de Sair
         logoutBtn.addEventListener("click", async () => {
             await signOut(auth);
             adminModal.classList.remove("active");
