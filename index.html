@@ -639,9 +639,9 @@
             isDragging = false;
             lockControls();
 
-            let momentum = velocity * 8000; 
-            //if (Math.abs(momentum) < 1500) {
-            //    momentum = (momentum >= 0 ? 1 : -1) * (Math.floor(Math.random() * 1500) + 1500);
+            let momentum = velocity * 4000; 
+            //if (Math.abs(momentum) < 1500) { 
+            //    momentum = (momentum >= 0 ? 1 : -1) * (Math.floor(Math.random() * 1500) + 1500); Creates a random value if the pull is weak
             //}
 
             currentRotation += momentum; 
