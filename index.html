@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Roleta de Acolhimento</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
@@ -154,27 +154,33 @@
         }
         .admin-btn:hover { color: #aaaaaa; }
 
-        /* Novo Botão de Tela Cheia no topo esquerdo */
+        /* =========================================
+           BOTÃO DE TELA CHEIA (CORRIGIDO)
+           ========================================= */
         .fullscreen-btn {
             position: fixed;
-            top: 20px;
-            left: 20px;
+            /* Usa as variáveis do sistema para desviar do notch da câmera/relógio */
+            top: max(20px, env(safe-area-inset-top));
+            right: max(20px, env(safe-area-inset-right));
             width: 48px;
             height: 48px;
-            background-color: transparent;
+            background-color: rgba(255, 255, 255, 0.15); /* Fundo branco translúcido */
+            border: 1px solid rgba(255, 255, 255, 0.3); /* Bordinha leve */
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            border: none;
-            color: #555555; 
-            transition: color 0.2s, background-color 0.2s;
-            z-index: 20;
+            color: #ffffff; /* Ícone branco e nítido */
+            transition: transform 0.2s, background-color 0.2s;
+            z-index: 50; /* Z-index alto para não ficar atrás de nada */
         }
         .fullscreen-btn:hover { 
-            color: #aaaaaa; 
-            background-color: rgba(255,255,255,0.05);
+            background-color: rgba(255, 255, 255, 0.3);
+            transform: scale(1.05);
+        }
+        .fullscreen-btn:active {
+            transform: scale(0.95);
         }
 
         /* =========================================
@@ -275,7 +281,6 @@
         @media (max-width: 800px) {
             .fab-button { bottom: 20px; right: 20px; width: 56px; height: 56px; }
             .admin-btn { bottom: 20px; left: 20px; }
-            .fullscreen-btn { top: 10px; left: 10px; }
             .modal-topic { font-size: 40px; } 
         }
     </style>
@@ -285,7 +290,6 @@
     <div class="wheel-container">
         <div class="wheel-stand"></div>
         <div class="wheel-base"></div>
-        
         <div class="pointer-wrapper"><div class="pointer" id="pointer"></div></div>
         <canvas id="wheelCanvas" width="1200" height="1200"></canvas>
     </div>
@@ -605,4 +609,212 @@
 
             const sliceAngle = 360 / topics.length;
             let phase = (angle - 270 + 360) % sliceAngle;
-            if (phase < 0
+            if (phase < 0) phase += sliceAngle;
+
+            if (lastPhase !== null) {
+                let delta = phase - lastPhase;
+                if (Math.abs(delta) > sliceAngle / 2) {
+                    let direction = delta > 0 ? "tickLeft" : "tickRight";
+                    triggerPointerTick(direction);
+                }
+            }
+            lastPhase = phase;
+            requestAnimationFrame(checkPegCollision); 
+        }
+
+        function triggerPointerTick(animationName) {
+            pointer.style.animation = 'none'; 
+            pointer.offsetHeight; 
+            pointer.style.animation = `${animationName} 0.15s ease-out`; 
+        }
+
+        let isDragging = false;
+        let lastAngle = 0;
+        let velocity = 0;
+        let lastTime = 0;
+
+        function getAngle(e) {
+            const rect = canvas.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
+        }
+
+        function startDrag(e) {
+            if (topics.length === 0 || spinBtn.disabled || e.target.closest('.modal-overlay') || e.target.closest('.fullscreen-btn') || e.target.closest('.admin-btn')) return;
+            isDragging = true;
+            canvas.style.transition = 'none'; 
+            lastAngle = getAngle(e);
+            lastTime = performance.now();
+        }
+
+        function drag(e) {
+            if (!isDragging) return;
+            e.preventDefault(); 
+            const currentMouseAngle = getAngle(e);
+            let delta = currentMouseAngle - lastAngle;
+            if (delta > 180) delta -= 360;
+            if (delta < -180) delta += 360;
+            currentRotation += delta;
+            canvas.style.transform = `rotate(${currentRotation}deg)`; 
+            
+            const now = performance.now();
+            const timeDelta = now - lastTime;
+            if (timeDelta > 0) velocity = delta / timeDelta;
+            
+            lastAngle = currentMouseAngle;
+            lastTime = now;
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            lockControls();
+
+            let momentum = velocity * 8000; 
+            if (Math.abs(momentum) < 1500) {
+                momentum = (momentum >= 0 ? 1 : -1) * (Math.floor(Math.random() * 1500) + 1500);
+            }
+
+            currentRotation += momentum; 
+            canvas.style.transition = 'transform 3s cubic-bezier(0.15, 0.85, 0.35, 1)'; 
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+
+            isSpinning = true;
+            lastPhase = null;
+            requestAnimationFrame(checkPegCollision);
+
+            setTimeout(() => {
+                isSpinning = false;
+                determineWinner();
+            }, 3000);
+        }
+
+        canvas.addEventListener('mousedown', startDrag);
+        window.addEventListener('mousemove', drag);
+        window.addEventListener('mouseup', endDrag);
+
+        canvas.addEventListener('touchstart', startDrag, {passive: false});
+        window.addEventListener('touchmove', drag, {passive: false});
+        window.addEventListener('touchend', endDrag);
+
+        spinBtn.addEventListener("click", () => {
+            if (topics.length === 0) return;
+            lockControls();
+            const randomDegree = Math.floor(Math.random() * 3600) + 1800;
+            currentRotation += randomDegree;
+            canvas.style.transition = "transform 4s cubic-bezier(0.25, 0.1, 0.25, 1)";
+            canvas.style.transform = `rotate(${currentRotation}deg)`;
+            isSpinning = true;
+            lastPhase = null;
+            requestAnimationFrame(checkPegCollision);
+            setTimeout(() => {
+                isSpinning = false;
+                determineWinner();
+            }, 4000); 
+        });
+
+        // =========================================
+        // LÓGICA DE TELA CHEIA CROSS-BROWSER
+        // =========================================
+        fullscreenBtn.addEventListener("click", () => {
+            const doc = window.document;
+            const docEl = doc.documentElement;
+
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                if (requestFullScreen) {
+                    requestFullScreen.call(docEl).catch(err => {
+                        alert("Não foi possível ativar a tela cheia. Talvez o Safari do iPhone esteja bloqueando.");
+                    });
+                } else {
+                    alert("Seu navegador não suporta a função de tela cheia.");
+                }
+            } else {
+                if (cancelFullScreen) {
+                    cancelFullScreen.call(doc);
+                }
+            }
+        });
+
+        const authModal = document.getElementById("authModal");
+        const adminModal = document.getElementById("adminModal");
+        const openAuthBtn = document.getElementById("openAuthBtn");
+        const closeAuthBtn = document.getElementById("closeAuthBtn");
+        const closeAdminBtn = document.getElementById("closeAdminBtn");
+        
+        const loginForm = document.getElementById("loginForm");
+        const emailInput = document.getElementById("emailInput");
+        const passwordInput = document.getElementById("passwordInput");
+        
+        const topicsInput = document.getElementById("topicsInput");
+        const colorsInput = document.getElementById("colorsInput");
+        const saveConfigBtn = document.getElementById("saveConfigBtn");
+        const logoutBtn = document.getElementById("logoutBtn");
+
+        openAuthBtn.addEventListener("click", () => {
+            if (auth.currentUser) {
+                topicsInput.value = topics.join("\n");
+                colorsInput.value = colors.join("\n");
+                adminModal.classList.add("active");
+            } else {
+                authModal.classList.add("active");
+            }
+        });
+
+        closeAuthBtn.addEventListener("click", () => authModal.classList.remove("active"));
+        closeAdminBtn.addEventListener("click", () => adminModal.classList.remove("active"));
+
+        loginForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            try {
+                await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+                authModal.classList.remove("active");
+                loginForm.reset();
+                topicsInput.value = topics.join("\n");
+                colorsInput.value = colors.join("\n");
+                adminModal.classList.add("active");
+            } catch (error) {
+                alert("Erro no login. Verifique o e-mail e a senha.");
+            }
+        });
+
+        saveConfigBtn.addEventListener("click", async () => {
+            const newTopics = topicsInput.value.split("\n").filter(t => t.trim() !== "");
+            const newColors = colorsInput.value.split("\n").filter(c => c.trim() !== "");
+            
+            if(newTopics.length === 0 || newColors.length === 0) {
+                alert("Você precisa inserir ao menos um tópico e uma cor.");
+                return;
+            }
+
+            saveConfigBtn.textContent = "Salvando...";
+            saveConfigBtn.disabled = true;
+
+            try {
+                await setDoc(configDocRef, {
+                    topics: newTopics,
+                    colors: newColors
+                });
+                adminModal.classList.remove("active");
+            } catch (error) {
+                alert("Erro ao salvar no servidor. Verifique sua conexão e permissões.");
+            } finally {
+                saveConfigBtn.textContent = "Salvar no Servidor";
+                saveConfigBtn.disabled = false;
+            }
+        });
+
+        logoutBtn.addEventListener("click", async () => {
+            await signOut(auth);
+            adminModal.classList.remove("active");
+            alert("Você saiu do painel de controle.");
+        });
+
+    </script>
+</body>
+</html>
