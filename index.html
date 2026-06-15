@@ -13,12 +13,12 @@
             margin: 0;
             padding: 0;
             width: 100vw;
-            height: 100dvh; /* Altura dinâmica real do celular */
+            height: 100dvh; 
             background-color: #121212; 
             font-family: 'Roboto', sans-serif;
             color: #ffffff;
-            overflow: hidden; /* Corta qualquer barra de rolagem */
-            position: fixed; /* A BALA DE PRATA: Prega a tela e impede o "pulo" no celular */
+            overflow: hidden; 
+            position: fixed; 
         }
 
         .wheel-container {
@@ -26,7 +26,6 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            /* Reduzido para 85vmin para dar espaço para a base e o ponteiro não vazarem a tela */
             width: 85vmin;  
             height: 85vmin; 
         }
@@ -50,11 +49,11 @@
 
         .wheel-base {
             position: absolute;
-            bottom: -4vmin; /* Ajustado para acompanhar o novo tamanho */
+            bottom: -4vmin; 
             left: 50%;
             transform: translateX(-50%);
-            width: 55vmin; 
-            height: 8vmin;  
+            width: 50vmin; 
+            height: 7vmin;  
             background: linear-gradient(to bottom, #333333, #111111);
             clip-path: polygon(15% 0, 85% 0, 100% 100%, 0 100%); 
             border-top: 2px solid #555555; 
@@ -67,7 +66,7 @@
            ========================================= */
         .pointer-wrapper {
             position: absolute;
-            top: -2vmin; /* Subimos um pouco mais para alinhar perfeito com 85vmin */
+            top: -4vmin; 
             left: 50%;
             transform: translateX(-50%); 
             z-index: 10; 
@@ -108,7 +107,7 @@
         canvas:active { cursor: grabbing; }
 
         /* =========================================
-           BOTÕES FLUTUANTES (GIRAR E ADMIN)
+           BOTÕES FLUTUANTES 
            ========================================= */
         .fab-button {
             position: fixed;
@@ -154,6 +153,29 @@
             z-index: 20;
         }
         .admin-btn:hover { color: #aaaaaa; }
+
+        /* Novo Botão de Tela Cheia no topo esquerdo */
+        .fullscreen-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            width: 48px;
+            height: 48px;
+            background-color: transparent;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            color: #555555; 
+            transition: color 0.2s, background-color 0.2s;
+            z-index: 20;
+        }
+        .fullscreen-btn:hover { 
+            color: #aaaaaa; 
+            background-color: rgba(255,255,255,0.05);
+        }
 
         /* =========================================
            MODAIS (RESULTADO, LOGIN E ADMIN)
@@ -253,6 +275,7 @@
         @media (max-width: 800px) {
             .fab-button { bottom: 20px; right: 20px; width: 56px; height: 56px; }
             .admin-btn { bottom: 20px; left: 20px; }
+            .fullscreen-btn { top: 10px; left: 10px; }
             .modal-topic { font-size: 40px; } 
         }
     </style>
@@ -267,6 +290,12 @@
         <canvas id="wheelCanvas" width="1200" height="1200"></canvas>
     </div>
     
+    <button id="fullscreenBtn" class="fullscreen-btn" title="Tela Cheia">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="28" height="28">
+            <path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+        </svg>
+    </button>
+
     <button id="spinBtn" class="fab-button" title="Girar Roleta">
         <svg fill="currentColor" viewBox="0 0 24 24" width="32" height="32">
             <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
@@ -351,6 +380,7 @@
         const ctx = canvas.getContext("2d");
         const spinBtn = document.getElementById("spinBtn");
         const pointer = document.getElementById("pointer");
+        const fullscreenBtn = document.getElementById("fullscreenBtn");
         
         let topics = [];
         let colors = []; 
@@ -575,187 +605,4 @@
 
             const sliceAngle = 360 / topics.length;
             let phase = (angle - 270 + 360) % sliceAngle;
-            if (phase < 0) phase += sliceAngle;
-
-            if (lastPhase !== null) {
-                let delta = phase - lastPhase;
-                if (Math.abs(delta) > sliceAngle / 2) {
-                    let direction = delta > 0 ? "tickLeft" : "tickRight";
-                    triggerPointerTick(direction);
-                }
-            }
-            lastPhase = phase;
-            requestAnimationFrame(checkPegCollision); 
-        }
-
-        function triggerPointerTick(animationName) {
-            pointer.style.animation = 'none'; 
-            pointer.offsetHeight; 
-            pointer.style.animation = `${animationName} 0.15s ease-out`; 
-        }
-
-        let isDragging = false;
-        let lastAngle = 0;
-        let velocity = 0;
-        let lastTime = 0;
-
-        function getAngle(e) {
-            const rect = canvas.getBoundingClientRect();
-            const centerX = rect.left + rect.width / 2;
-            const centerY = rect.top + rect.height / 2;
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            return Math.atan2(clientY - centerY, clientX - centerX) * (180 / Math.PI);
-        }
-
-        function startDrag(e) {
-            if (topics.length === 0 || spinBtn.disabled || e.target.closest('.modal-overlay')) return;
-            isDragging = true;
-            canvas.style.transition = 'none'; 
-            lastAngle = getAngle(e);
-            lastTime = performance.now();
-        }
-
-        function drag(e) {
-            if (!isDragging) return;
-            e.preventDefault(); 
-            const currentMouseAngle = getAngle(e);
-            let delta = currentMouseAngle - lastAngle;
-            if (delta > 180) delta -= 360;
-            if (delta < -180) delta += 360;
-            currentRotation += delta;
-            canvas.style.transform = `rotate(${currentRotation}deg)`; 
-            
-            const now = performance.now();
-            const timeDelta = now - lastTime;
-            if (timeDelta > 0) velocity = delta / timeDelta;
-            
-            lastAngle = currentMouseAngle;
-            lastTime = now;
-        }
-
-        function endDrag() {
-            if (!isDragging) return;
-            isDragging = false;
-            lockControls();
-
-            let momentum = velocity * 2000; 
-            //if (Math.abs(momentum) < 1500) { 
-            //    momentum = (momentum >= 0 ? 1 : -1) * (Math.floor(Math.random() * 1500) + 1500); Creates a random value if the pull is weak
-            //}
-
-            currentRotation += momentum; 
-            canvas.style.transition = 'transform 3s cubic-bezier(0.15, 0.85, 0.35, 1)'; 
-            canvas.style.transform = `rotate(${currentRotation}deg)`;
-
-            isSpinning = true;
-            lastPhase = null;
-            requestAnimationFrame(checkPegCollision);
-
-            setTimeout(() => {
-                isSpinning = false;
-                determineWinner();
-            }, 3000);
-        }
-
-        canvas.addEventListener('mousedown', startDrag);
-        window.addEventListener('mousemove', drag);
-        window.addEventListener('mouseup', endDrag);
-
-        canvas.addEventListener('touchstart', startDrag, {passive: false});
-        window.addEventListener('touchmove', drag, {passive: false});
-        window.addEventListener('touchend', endDrag);
-
-        spinBtn.addEventListener("click", () => {
-            if (topics.length === 0) return;
-            lockControls();
-            const randomDegree = Math.floor(Math.random() * 3600) + 1800;
-            currentRotation += randomDegree;
-            canvas.style.transition = "transform 4s cubic-bezier(0.25, 0.1, 0.25, 1)";
-            canvas.style.transform = `rotate(${currentRotation}deg)`;
-            isSpinning = true;
-            lastPhase = null;
-            requestAnimationFrame(checkPegCollision);
-            setTimeout(() => {
-                isSpinning = false;
-                determineWinner();
-            }, 4000); 
-        });
-
-        const authModal = document.getElementById("authModal");
-        const adminModal = document.getElementById("adminModal");
-        const openAuthBtn = document.getElementById("openAuthBtn");
-        const closeAuthBtn = document.getElementById("closeAuthBtn");
-        const closeAdminBtn = document.getElementById("closeAdminBtn");
-        
-        const loginForm = document.getElementById("loginForm");
-        const emailInput = document.getElementById("emailInput");
-        const passwordInput = document.getElementById("passwordInput");
-        
-        const topicsInput = document.getElementById("topicsInput");
-        const colorsInput = document.getElementById("colorsInput");
-        const saveConfigBtn = document.getElementById("saveConfigBtn");
-        const logoutBtn = document.getElementById("logoutBtn");
-
-        openAuthBtn.addEventListener("click", () => {
-            if (auth.currentUser) {
-                topicsInput.value = topics.join("\n");
-                colorsInput.value = colors.join("\n");
-                adminModal.classList.add("active");
-            } else {
-                authModal.classList.add("active");
-            }
-        });
-
-        closeAuthBtn.addEventListener("click", () => authModal.classList.remove("active"));
-        closeAdminBtn.addEventListener("click", () => adminModal.classList.remove("active"));
-
-        loginForm.addEventListener("submit", async (e) => {
-            e.preventDefault();
-            try {
-                await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
-                authModal.classList.remove("active");
-                loginForm.reset();
-                topicsInput.value = topics.join("\n");
-                colorsInput.value = colors.join("\n");
-                adminModal.classList.add("active");
-            } catch (error) {
-                alert("Erro no login. Verifique o e-mail e a senha.");
-            }
-        });
-
-        saveConfigBtn.addEventListener("click", async () => {
-            const newTopics = topicsInput.value.split("\n").filter(t => t.trim() !== "");
-            const newColors = colorsInput.value.split("\n").filter(c => c.trim() !== "");
-            
-            if(newTopics.length === 0 || newColors.length === 0) {
-                alert("Você precisa inserir ao menos um tópico e uma cor.");
-                return;
-            }
-
-            saveConfigBtn.textContent = "Salvando...";
-            saveConfigBtn.disabled = true;
-
-            try {
-                await setDoc(configDocRef, {
-                    topics: newTopics,
-                    colors: newColors
-                });
-                adminModal.classList.remove("active");
-            } catch (error) {
-                alert("Erro ao salvar no servidor. Verifique sua conexão e permissões.");
-            } finally {
-                saveConfigBtn.textContent = "Salvar no Servidor";
-                saveConfigBtn.disabled = false;
-            }
-        });
-
-        logoutBtn.addEventListener("click", async () => {
-            await signOut(auth);
-            adminModal.classList.remove("active");
-            alert("Você saiu do painel de controle.");
-        });
-
-    </script>
-</body>
-</html>
+            if (phase < 0
